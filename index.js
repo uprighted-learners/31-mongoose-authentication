@@ -44,6 +44,20 @@ const userSchema = new mongoose.Schema({
 // create user model
 const User = mongoose.model('User', userSchema);
 
+// middleware to authenticate the JWT
+function authenticateToken(req, res, next) {
+    const authHeader = req.headers['authorization'];
+    const token = authHeader && authHeader.split(' ')[1]; // BEARER TOKEN
+
+    if (token == null) return res.sendStatus(401); // no token was provided
+
+    jwt.verify(token, process.env.JWT_SECRET, (err, user) => {
+        if (err) return res.sendStatus(403); // token is invalid
+        req.user = user;
+        next();
+    });
+}
+
 // REGISTER ENDPOINT
 // POST - /api/register - creates a new user
 app.post("/api/register", async (req, res) => {
@@ -70,12 +84,23 @@ app.post("/api/login", async (req, res) => {
     try {
         if (await bcrypt.compare(req.body.password, user.password)) {
             const accessToken = jwt.sign({ username: user.username }, process.env.JWT_SECRET, { expiresIn: '1h' });
-            res.status(200).json({ message: "Login successful", accessToken });
+            res.json({ message: "Login successful", accessToken })
         } else {
             res.status(401).json({ message: "Invalid password" });
         }
     } catch (error) {
         res.status(500).json({ message: error.message });
+    }
+});
+
+// PROTECTED ROUTE
+// GET - /api/protected - a generic protected route
+app.get("/api/protected", authenticateToken, async (req, res) => {
+    try {
+        const user = await User.find({ username: req.user.username });
+        res.json({ message: "Protected route", user });
+    } catch (error) {
+        res.statusCode(500).json({ message: error.message });
     }
 });
 
