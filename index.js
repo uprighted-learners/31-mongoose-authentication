@@ -60,6 +60,25 @@ app.post("/api/register", async (req, res) => {
     }
 });
 
+// LOGIN ENDPOINT
+// POST - /api/login - logs in a user
+app.post("/api/login", async (req, res) => {
+    const user = await User.findOne({ username: req.body.username });
+    if (user == null) {
+        return res.status(400).json({ message: "Cannot find user" });
+    }
+    try {
+        if (await bcrypt.compare(req.body.password, user.password)) {
+            const accessToken = jwt.sign({ username: user.username }, process.env.JWT_SECRET, { expiresIn: '1h' });
+            res.status(200).json({ message: "Login successful", accessToken });
+        } else {
+            res.status(401).json({ message: "Invalid password" });
+        }
+    } catch (error) {
+        res.status(500).json({ message: error.message });
+    }
+});
+
 // server listening
 app.listen(PORT, () => {
     console.log(`Server listening on port ${PORT}`);
